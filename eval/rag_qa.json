@@ -1,0 +1,62 @@
+[
+  {
+    "query": "Do statins cause breast cancer?",
+    "reference": "Studies show statins do not significantly increase breast cancer risk and may improve survival in breast cancer patients."
+  },
+  {
+    "query": "How does vitamin D deficiency affect health?",
+    "reference": "Vitamin D deficiency leads to bone loss, increased fracture risk, immune dysfunction, and is linked to cardiovascular disease."
+  },
+  {
+    "query": "What are the effects of dietary fat on cancer?",
+    "reference": "High dietary fat intake is associated with increased risk of certain cancers including breast and colon cancer."
+  },
+  {
+    "query": "How does exercise affect cancer risk?",
+    "reference": "Regular physical activity reduces the risk of colon, breast, and endometrial cancers by regulating hormones and inflammation."
+  },
+  {
+    "query": "What is the role of omega-3 fatty acids in health?",
+    "reference": "Omega-3 fatty acids reduce inflammation, lower triglycerides, and are associated with reduced cardiovascular disease risk."
+  },
+  {
+    "query": "Does red meat consumption increase cancer risk?",
+    "reference": "High consumption of red and processed meat is associated with increased colorectal cancer risk."
+  },
+  {
+    "query": "What are the health effects of sugar consumption?",
+    "reference": "Excess sugar intake contributes to obesity, type 2 diabetes, and increases risk of cardiovascular disease."
+  },
+  {
+    "query": "How does fiber intake affect colon health?",
+    "reference": "High dietary fiber intake reduces colorectal cancer risk and promotes healthy gut microbiome."
+  },
+  {
+    "query": "What is the relationship between obesity and cancer?",
+    "reference": "Obesity is a major risk factor for multiple cancers including breast, colon, kidney, and endometrial cancer."
+  },
+  {
+    "query": "How does alcohol consumption affect cancer risk?",
+    "reference": "Alcohol consumption is linked to increased risk of liver, breast, colon, and esophageal cancers."
+  },
+  {
+    "query": "What are the benefits of Mediterranean diet?",
+    "reference": "Mediterranean diet reduces risk of cardiovascular disease, type 2 diabetes, and certain cancers due to high intake of vegetables, fish, and olive oil."
+  },
+  {
+    "query": "How does insulin resistance relate to cancer?",
+    "reference": "Insulin resistance promotes cancer cell growth by increasing insulin and IGF-1 levels which stimulate tumor proliferation."
+  },
+  {
+    "query": "What is the effect of antioxidants on disease?",
+    "reference": "Antioxidants neutralize free radicals and reduce oxidative stress, lowering risk of chronic diseases including cancer and heart disease."
+  },
+  {
+    "query": "How does green tea affect cancer prevention?",
+    "reference": "Green tea contains catechins that have anti-cancer properties by inhibiting tumor growth and inducing cancer cell death."
+  },
+  {
+    "query": "What is the role of probiotics in gut health?",
+    "reference": "Probiotics maintain gut microbiome balance, reduce inflammation, and may lower risk of colorectal cancer."
+  }
+]

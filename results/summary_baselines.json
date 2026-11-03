@@ -1,0 +1,39 @@
+{
+  "retrieval": {
+    "BM25": {
+      "ndcg@5": 0.3344,
+      "mrr": 0.5
+    },
+    "Hybrid (BM25+Dense, RRF)": {
+      "ndcg@5": 0.3673,
+      "mrr": 0.5381
+    },
+    "Hybrid + Cross-Encoder": {
+      "ndcg@5": 0.3919,
+      "mrr": 0.5672
+    },
+    "Hybrid + Aspect-Aware": {
+      "ndcg@5": 0.3889,
+      "mrr": 0.5601
+    }
+  },
+  "answers": {},
+  "significance_ndcg@5": [
+    {
+      "a": "Hybrid (BM25+Dense, RRF)",
+      "b": "BM25",
+      "mean_diff": 0.0329,
+      "relative": 0.0985,
+      "p_value": 0.0001
+    },
+    {
+      "a": "Hybrid + Aspect-Aware",
+      "b": "Hybrid + Cross-Encoder",
+      "mean_diff": -0.003,
+      "relative": -0.0077,
+      "p_value": 0.0301
+    }
+  ],
+  "n_queries": 323,
+  "llm_model": null
+}

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agentic RAG · Medical research Q&amp;A</title>
+<meta name="description" content="A LangGraph agent that plans searches, grades evidence, rewrites queries and answers medical-research questions with verified citations.">
+<style>
+  :root { --bg:#0b0f19; --panel:#111827; --line:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --accent:#5eead4; --accent2:#818cf8; --warn:#fbbf24; --bad:#f87171; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f7f8fc; --panel:#fff; --line:#e5e7eb; --text:#0f172a; --muted:#475569; --accent:#0d9488; --accent2:#4f46e5; --warn:#b45309; --bad:#dc2626; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:980px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:clamp(1.6rem,4vw,2.3rem); margin:0 0 6px; letter-spacing:-.02em; }
+  h1 span { background:linear-gradient(120deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { color:var(--muted); margin:0 0 24px; }
+  .status { font:13px ui-monospace,Consolas,monospace; color:var(--muted); margin-bottom:14px; }
+  .status b { color:var(--accent); }
+  form { display:flex; gap:10px; flex-wrap:wrap; }
+  input[type=text] { flex:1 1 360px; padding:14px 16px; border-radius:12px; border:1px solid var(--line); background:var(--panel); color:var(--text); font:inherit; }
+  button { padding:14px 20px; border:0; border-radius:12px; font:inherit; font-weight:600; cursor:pointer; background:linear-gradient(120deg,var(--accent),var(--accent2)); color:#050810; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .row { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin:12px 0 4px; color:var(--muted); font-size:14px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 24px; }
+  .chip { border:1px solid var(--line); background:var(--panel); color:var(--muted); border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer; }
+  .chip:hover { color:var(--text); border-color:var(--accent); }
+  .grid { display:grid; grid-template-columns:1.6fr 1fr; gap:16px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px; }
+  .card h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 12px; }
+  .answer { white-space:pre-wrap; }
+  sup a { color:var(--accent); text-decoration:none; font-weight:600; }
+  .metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-top:16px; }
+  .metric { border:1px solid var(--line); border-radius:12px; padding:10px; }
+  .metric b { display:block; font-size:1.2rem; }
+  .metric small { color:var(--muted); }
+  .src { padding:10px 0; border-top:1px dashed var(--line); font-size:14px; }
+  .src:first-of-type { border-top:0; }
+  .src strong { color:var(--accent); margin-right:6px; }
+  .src p { margin:4px 0 0; color:var(--muted); }
+  ol.trace { margin:0; padding-left:20px; font-size:14px; }
+  ol.trace li { margin-bottom:8px; }
+  ol.trace code { font-size:12px; color:var(--muted); word-break:break-word; }
+  .warn { color:var(--warn); font-size:14px; margin-top:12px; }
+  .err { color:var(--bad); }
+  footer { margin-top:40px; color:var(--muted); font-size:13px; }
+  footer a { color:var(--accent); }
+  #out[hidden] { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1><span>Agentic RAG</span> for medical research</h1>
+  <p class="sub">A LangGraph agent plans its searches, grades the evidence, rewrites the query when evidence is thin, then answers with citations that a second pass verifies. Knowledge base: 3,633 NFCorpus research abstracts.</p>
+  <div class="status" id="status">Checking service…</div>
+
+  <form id="ask">
+    <input type="text" id="q" placeholder="e.g. Do statins increase breast cancer risk?" minlength="3" maxlength="400" required aria-label="Question">
+    <button id="go" type="submit">Ask</button>
+  </form>
+  <div class="row">
+    <label><input type="radio" name="mode" value="agent" checked> Agent (plan, grade, rewrite, verify)</label>
+    <label><input type="radio" name="mode" value="single"> Single-pass RAG baseline</label>
+  </div>
+  <div class="chips" id="examples"></div>
+
+  <section id="out" hidden>
+    <div class="grid">
+      <div class="card">
+        <h2>Answer</h2>
+        <div class="answer" id="answer"></div>
+        <div class="warn" id="unsupported"></div>
+        <div class="metrics" id="metrics"></div>
+      </div>
+      <div class="card">
+        <h2>Agent trace</h2>
+        <ol class="trace" id="trace"></ol>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Sources</h2>
+      <div id="sources"></div>
+    </div>
+  </section>
+
+  <footer>Research summaries only, not medical advice. Built by <a href="https://sathrish.github.io">Sathrish S</a> · <a href="https://github.com/Sathrish/agentic-rag-service">source code</a></footer>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const EXAMPLES = ["Do statins increase breast cancer risk?", "How does vitamin D deficiency affect bones and immunity?",
+  "Is coffee good or bad for the liver?", "What foods lower colon cancer risk?", "Hello, what can you do?"];
+$("#examples").innerHTML = EXAMPLES.map((e) => `<button type="button" class="chip">${esc(e)}</button>`).join("");
+$("#examples").addEventListener("click", (e) => { if (e.target.matches(".chip")) { $("#q").value = e.target.textContent; $("#ask").requestSubmit(); } });
+
+async function poll() {
+  try {
+    const h = await (await fetch("/api/health")).json();
+    if (h.status === "ready") { $("#status").innerHTML = `Status: <b>ready</b> · model ${esc(h.model)}`; return; }
+    $("#status").innerHTML = h.status === "error" ? `<span class="err">Service error: ${esc(h.error)}</span>`
+      : "Status: loading the search index (about a minute after start-up)…";
+    if (h.status === "loading") setTimeout(poll, 4000);
+  } catch { $("#status").textContent = "Service unreachable."; setTimeout(poll, 6000); }
+}
+poll();
+
+const pct = (v) => v == null ? "–" : Math.round(v * 100) + "%";
+function describe(t) {
+  switch (t.step) {
+    case "plan": return `<b>Plan</b>: ${esc(t.detail)}; aspects <code>${esc((t.aspects || []).join(" | "))}</code>`;
+    case "retrieve": return `<b>Retrieve</b> for <code>${esc(t.query)}</code>: ${t.docs.length} docs`;
+    case "grade": return `<b>Grade</b>: ${t.relevant.length} relevant, ${t.evidence} total, aspect coverage ${pct(t.coverage)}`;
+    case "rewrite": return `<b>Rewrite</b> → <code>${esc(t.query)}</code> (missing: ${esc((t.missing || []).join(", "))})`;
+    case "answer": return `<b>Answer</b>${t.cited ? `: cites ${t.cited.length ? t.cited.map((n) => "[" + n + "]").join("") : "nothing"}` : ": " + esc(t.detail)}`;
+    case "verify": return `<b>Verify</b>: ${t.faithfulness != null ? "faithfulness " + pct(t.faithfulness) : esc(t.detail)}`;
+    default: return esc(JSON.stringify(t));
+  }
+}
+
+$("#ask").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = $("#q").value.trim();
+  const mode = document.querySelector("input[name=mode]:checked").value;
+  $("#go").disabled = true; $("#go").textContent = "Thinking…";
+  try {
+    const r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, mode }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail?.[0]?.msg || d.detail || r.statusText);
+    $("#answer").innerHTML = esc(d.answer).replace(/\[(\d+)\]/g, '<sup><a href="#src-$1">[$1]</a></sup>');
+    $("#unsupported").textContent = d.unsupported?.length ? `Verifier flagged ${d.unsupported.length} sentence(s) as not supported by the sources.` : "";
+    $("#metrics").innerHTML = [["Search rounds", d.rounds], ["Aspect coverage", pct(d.coverage)], ["Faithfulness", pct(d.faithfulness)],
+      ["LLM calls", d.llm_calls], ["Seconds", d.seconds]].map(([k, v]) => `<div class="metric"><b>${esc(v)}</b><small>${k}</small></div>`).join("");
+    $("#trace").innerHTML = d.trace.map((t) => `<li>${describe(t)}</li>`).join("");
+    $("#sources").innerHTML = d.sources.length ? d.sources.map((s) => `<div class="src" id="src-${s.n}"><strong>[${s.n}]</strong>${esc(s.title)} <small>(${esc(s.doc_id)})</small><p>${esc(s.snippet)}…</p></div>`).join("") : "<p>No sources used.</p>";
+    $("#out").hidden = false;
+  } catch (err) {
+    $("#out").hidden = false; $("#answer").innerHTML = `<span class="err">${esc(err.message)}</span>`;
+    $("#metrics").innerHTML = $("#trace").innerHTML = $("#sources").innerHTML = $("#unsupported").textContent = "";
+  } finally { $("#go").disabled = false; $("#go").textContent = "Ask"; }
+});
+</script>
+</body>
+</html>
