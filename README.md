@@ -2,6 +2,8 @@
 
 A **LangGraph agent** that answers medical and nutrition questions from 3,633 research abstracts (NFCorpus). It plans its searches, judges which documents are relevant, rewrites the query when the evidence is thin, answers with inline citations, and then **verifies** each sentence against the sources. It runs behind a **FastAPI** service with a small web demo and is packaged with **Docker**.
 
+**Live demo:** https://agentic-rag-s3mh.onrender.com (free instance: the first request after 15 idle minutes takes about a minute to wake up).
+
 It extends my earlier study, [aspect-aware-rag-reranking](https://github.com/Sathrish/aspect-aware-rag-reranking), whose retrieval code is reused unchanged. The question this repo asks is not "can I build an agent?" but **"does the agent actually retrieve and answer better than a simpler pipeline, and what does it cost?"**
 
 ## How the agent works
