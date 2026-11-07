@@ -1,0 +1,87 @@
+{
+  "retrieval": {
+    "BM25": {
+      "ndcg@5": 0.3248,
+      "mrr": 0.4592
+    },
+    "Hybrid (BM25+Dense, RRF)": {
+      "ndcg@5": 0.3507,
+      "mrr": 0.5177
+    },
+    "Hybrid + Cross-Encoder": {
+      "ndcg@5": 0.3855,
+      "mrr": 0.5243
+    },
+    "Hybrid + Aspect-Aware": {
+      "ndcg@5": 0.383,
+      "mrr": 0.5173
+    },
+    "Agent (LLM aspects + grading + rewrite)": {
+      "ndcg@5": 0.39,
+      "mrr": 0.5365
+    }
+  },
+  "answers": {
+    "Agent": {
+      "rougeL": 0.1229,
+      "faithfulness": 0.9233,
+      "citation_rate": 0.5733,
+      "llm_calls": 4.1333,
+      "llm_tokens": 3682.2667,
+      "seconds": 15.8713
+    },
+    "Single-pass RAG": {
+      "rougeL": 0.1241,
+      "faithfulness": 0.8856,
+      "citation_rate": 0.6478,
+      "llm_calls": 2.0,
+      "llm_tokens": 2860.3333,
+      "seconds": 7.2573
+    },
+    "agent_vs_single_rougeL": {
+      "mean_diff": -0.0012,
+      "p_value": 0.8315
+    },
+    "agent_vs_single_faithfulness": {
+      "mean_diff": 0.0378,
+      "p_value": 0.4242
+    }
+  },
+  "significance_ndcg@5": [
+    {
+      "a": "Hybrid (BM25+Dense, RRF)",
+      "b": "BM25",
+      "mean_diff": 0.0259,
+      "relative": 0.0799,
+      "p_value": 0.0348
+    },
+    {
+      "a": "Hybrid + Aspect-Aware",
+      "b": "Hybrid + Cross-Encoder",
+      "mean_diff": -0.0026,
+      "relative": -0.0066,
+      "p_value": 0.6371
+    },
+    {
+      "a": "Agent (LLM aspects + grading + rewrite)",
+      "b": "Hybrid + Aspect-Aware",
+      "mean_diff": 0.007,
+      "relative": 0.0183,
+      "p_value": 0.629
+    },
+    {
+      "a": "Agent (LLM aspects + grading + rewrite)",
+      "b": "Hybrid + Cross-Encoder",
+      "mean_diff": 0.0044,
+      "relative": 0.0115,
+      "p_value": 0.7401
+    }
+  ],
+  "n_queries": 100,
+  "agent_rewrite_rate": 0.46,
+  "agent_llm_calls_per_query": 2.92,
+  "agent_llm_tokens_per_query": 1423.4,
+  "n_answer_questions": 15,
+  "llm_model": "openai/gpt-oss-120b",
+  "llm_reasoning_effort": "low"
+}

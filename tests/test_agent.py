@@ -1,5 +1,14 @@
 from fakes import FakeLLM
-from ragagent.agent import NO_EVIDENCE, RagAgent, cited_numbers, excerpt, normalise_answer, split_sentences
+from ragagent.agent import NO_EVIDENCE, RagAgent, cited_numbers, excerpt, is_chitchat, normalise_answer, split_sentences
+
+
+def test_keyword_queries_are_never_skipped(engine):
+    llm = FakeLLM(route="direct")                    # planner wrongly wants to skip search
+    out = RagAgent(engine, llm).run("bagels")
+    assert out["route"] == "retrieve" and out["rounds"] >= 1
+    assert "overridden" in out["trace"][0]["detail"]
+    assert not is_chitchat("Hiroshima") and not is_chitchat("statins and breast cancer")
+    assert is_chitchat("hello there") and is_chitchat("What can you do?") and is_chitchat("thanks!")
 
 
 def test_direct_route_skips_retrieval(engine):

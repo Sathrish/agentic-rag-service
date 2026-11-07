@@ -43,16 +43,32 @@ The UI shows every step (the agent trace), the sources, and the metrics for each
 
 ### Agent vs baselines
 
-**In progress.** The full benchmark (agent retrieval on 100 fixed random queries, plus answer quality on 15 reference questions: ROUGE-L, faithfulness, citation rate, LLM calls, tokens and latency, single-pass RAG vs agent) is being run within the free API tier's daily token cap. Results will appear here, whichever way they come out.
+**Retrieval** on 100 fixed random test queries (seed 42), same models and data for every system:
 
-What I have measured so far, on single questions:
+![NDCG@5: baselines vs agent](results/retrieval_ndcg_agent.png)
 
-| Question | Search rounds | Aspect coverage | Faithfulness | LLM calls | Seconds |
-|---|---|---|---|---|---|
-| Is coffee good or bad for the liver? | 1 | 100% | 100% | 4 | 7.0 |
-| Do statins increase breast cancer risk, and do they affect survival? | 1 | 100% | 50% | 4 | 10.1 |
+| System | NDCG@5 | MRR |
+|---|---|---|
+| BM25 | 0.325 | 0.459 |
+| Hybrid (BM25 + dense, RRF) | 0.351 | 0.518 |
+| Hybrid + cross-encoder | 0.386 | 0.524 |
+| Hybrid + aspect-aware | 0.383 | 0.517 |
+| **Agent** (LLM aspects + grading + rewrite) | **0.390** | **0.537** |
 
-The second row is the verifier doing its job: it flagged 2 of 4 sentences as not fully supported by the source excerpts.
+**Answers** on the 15 reference questions, agent vs single-pass RAG (same retriever, same LLM, same answer prompt):
+
+| | ROUGE-L | Faithfulness (verifier) | Citation rate | LLM calls | Tokens | Seconds |
+|---|---|---|---|---|---|---|
+| Single-pass RAG | 0.124 | 88.6% | 64.8% | 2.0 | 2,860 | 7.3 |
+| Agent | 0.123 | **92.3%** | 57.3% | 4.1 | 3,682 | 15.9 |
+
+What this shows, honestly:
+- **The agent has the best retrieval scores, but the margin is not significant.** +1.2% NDCG@5 over the cross-encoder (paired randomisation test, p = 0.74). With 100 queries, this benchmark cannot separate the top three systems.
+- **Its answers were more faithful to the sources** (92% vs 89% of sentences verified), again **not significant** on only 15 questions (p = 0.42). ROUGE-L against the reference answers is unchanged.
+- **It costs about 2x**: 4.1 LLM calls instead of 2, and 16 s instead of 7 s per answer. 46% of queries needed a query rewrite.
+- **A bug found by per-query analysis.** The first run scored the agent *below* the baselines (0.367). Looking per query rather than at the average showed the planner had refused to search 15 keyword-style queries ("Hiroshima", "bagels"), treating them as off-topic. Search is now skipped only for chit-chat, enforced in code with a regression test, and the agent moved from last to first. The pre-fix results are kept in `results/retrieval_agent_100_before_planner_fix.csv`.
+
+Conclusion: on this corpus the agent is **at least as good as the strongest pipeline and somewhat more faithful, at twice the cost**. A larger question set would be needed to show a significant difference.
 
 ## Engineering notes and problems I hit
 
@@ -62,6 +78,7 @@ The second row is the verifier doing its job: it flagged 2 of 4 sentences as not
 - **Citation format.** gpt-oss cites with `【3】` rather than `[3]`, which made the citation counter report zero. Answers are normalised before scoring.
 - **Truncation was hiding conclusions.** Feeding the first 700 characters of each abstract cut off the conclusion, so the agent wrongly called the statin survival evidence "uncertain". It now sends each abstract's opening **and** ending.
 - **Dataset download.** The original BEIR server intermittently fails Python's TLS verification, so the loader falls back to the identical Hugging Face mirror (verified: 3,633 documents, 323 test queries).
+- **Trusting the LLM's routing was a bug.** The planner prompt said "direct reply for off-topic questions", and the model applied it to short keyword queries. The rule is now enforced in code (`is_chitchat`), not left to the prompt.
 - **Robustness.** If the planner, grader or verifier returns bad JSON, the agent degrades gracefully (rule-based aspects, keep all documents, skip verification) and records it in the trace rather than failing the request.
 
 ## Run it
@@ -78,7 +95,7 @@ uvicorn ragagent.api:app --port 7860                  # open http://localhost:78
 Tests use fake models and a fake LLM, so they run offline with no API key:
 
 ```bash
-python -m pytest -q          # 20 tests: search, agent routing, rewrite cap, verifier, API, rate limit
+python -m pytest -q          # 21 tests: search, agent routing, rewrite cap, verifier, API, rate limit
 ```
 
 Benchmarks:

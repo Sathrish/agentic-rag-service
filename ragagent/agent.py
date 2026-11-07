@@ -19,10 +19,22 @@ from .core.metrics import covered_aspects
 PLAN_SYSTEM = """You plan searches for a question-answering assistant. Its knowledge base is
 NFCorpus: abstracts of medical and nutrition research (diet, diseases, drugs, supplements).
 Return JSON: {"route": "retrieve" or "direct", "aspects": [...], "reply": "..."}.
-- route "direct" only for greetings or questions unrelated to health, nutrition or medicine;
+- route "direct" ONLY for greetings, thanks, or questions about the assistant itself;
   then "reply" briefly says what the assistant can help with and "aspects" is [].
-- otherwise route "retrieve" and list 1 to 4 short search phrases ("aspects"), each covering
-  a distinct part of the question. Leave "reply" empty."""
+- everything else is searched, including single keywords or short phrases (e.g. "bagels",
+  "Hiroshima"): route "retrieve" and list 1 to 4 short search phrases ("aspects"), each
+  covering a distinct part of the question. Leave "reply" empty."""
+
+# Skipping search is only allowed for chit-chat. The LLM alone routed 15% of keyword queries
+# ("Hiroshima", "bagels", ...) to "direct", which cost the agent its NDCG lead, so the code
+# enforces the rule instead of trusting the prompt.
+_CHITCHAT = re.compile(
+    r"^\s*(hi|hello|hey|hii+|good (morning|afternoon|evening)|thanks?|thank you|ok(ay)?|bye|"
+    r"who are you|what are you|what can you do|how are you|help)\b[\s\w,'!?.]{0,40}$", re.IGNORECASE)
+
+
+def is_chitchat(text: str) -> bool:
+    return bool(_CHITCHAT.match(text or ""))
 
 GRADE_SYSTEM = """You judge search results. For the question, decide which numbered documents
 contain information that helps answer it. Return JSON: {"relevant": [document numbers]}."""
@@ -115,6 +127,9 @@ class RagAgent:
             note = f"planner failed ({type(exc).__name__}); using rule-based aspects"
         else:
             note = f"route={route}"
+        if route == "direct" and not is_chitchat(q):
+            route, reply = "retrieve", ""
+            note = "planner chose direct, overridden: only chit-chat may skip search"
         if route == "retrieve" and not aspects:
             aspects = extract_aspects(q)
         aspects = aspects[:config.MAX_ASPECTS]
