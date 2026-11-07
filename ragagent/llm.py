@@ -1,4 +1,4 @@
-"""Thin LLM wrapper over any OpenAI-compatible chat API (Groq by default).
+"""Thin LLM wrapper over any OpenAI-compatible chat API (Groq by default), using the OpenAI SDK.
 
 The agent only needs two calls, ``text`` and ``json``, so tests can swap in a fake.
 """
@@ -27,36 +27,38 @@ class ChatLLM:
                  reasoning_effort=settings.LLM_REASONING_EFFORT):
         if not api_key:
             raise RuntimeError("Set GROQ_API_KEY (or LLM_API_KEY) to call the LLM. See .env.example.")
-        from langchain_openai import ChatOpenAI
+        # The plain OpenAI SDK (not langchain-openai) keeps the service ~30 MB lighter on 512 MB hosts.
+        from openai import OpenAI
 
         self.model = model
-        extra = {}
+        self.temperature = temperature
+        self._client = OpenAI(base_url=base_url, api_key=api_key, max_retries=4, timeout=60)
+        self._extra = {}
         # gpt-oss models "think" before answering; low effort cuts hidden reasoning tokens ~20x.
         if reasoning_effort and "gpt-oss" in model:
-            extra["reasoning_effort"] = reasoning_effort
-        self._chat = ChatOpenAI(model=model, base_url=base_url, api_key=api_key,
-                                temperature=temperature, max_retries=4, timeout=60, **extra)
-        self._json_chat = self._chat.bind(response_format={"type": "json_object"})
+            self._extra["reasoning_effort"] = reasoning_effort
         self.calls = 0
         self.tokens = 0
 
-    def _messages(self, system, user):
-        return [("system", system), ("human", user)]
-
-    def _invoke(self, chat, system, user):
+    def _invoke(self, system, user, json_mode=False):
         self.calls += 1
-        msg = chat.invoke(self._messages(system, user))
-        self.tokens += (getattr(msg, "usage_metadata", None) or {}).get("total_tokens", 0)
-        return msg.content
+        kwargs = dict(self._extra)
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+        resp = self._client.chat.completions.create(
+            model=self.model, temperature=self.temperature,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}], **kwargs)
+        if resp.usage is not None:
+            self.tokens += resp.usage.total_tokens or 0
+        return resp.choices[0].message.content or ""
 
     def text(self, system: str, user: str) -> str:
-        return self._invoke(self._chat, system, user).strip()
+        return self._invoke(system, user).strip()
 
     def json(self, system: str, user: str) -> dict:
-        raw = self._invoke(self._json_chat, system + "\nRespond with a JSON object only.", user)
+        raw = self._invoke(system + "\nRespond with a JSON object only.", user, json_mode=True)
         try:
             return parse_json(raw)
         except ValueError:   # one repair attempt
-            raw = self._invoke(self._chat, system + "\nYour previous reply was not valid JSON. "
-                               "Respond with a JSON object only.", user)
+            raw = self._invoke(system + "\nYour previous reply was not valid JSON. Respond with a JSON object only.", user)
             return parse_json(raw)

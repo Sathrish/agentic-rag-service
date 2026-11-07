@@ -28,6 +28,7 @@ LLM_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("GROQ_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0"))
 LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "low")   # gpt-oss only: low | medium | high
+MODEL_RUNTIME = os.getenv("MODEL_RUNTIME", "torch")                  # "torch" (benchmarks) or "onnx" (small hosts)
 
 MAX_REWRITES = int(os.getenv("MAX_REWRITES", "1"))      # extra search rounds the agent may take
 MIN_RELEVANT_DOCS = int(os.getenv("MIN_RELEVANT_DOCS", "2"))

@@ -1,0 +1,20 @@
+# Render Blueprint: free web service (512 MB). Connect the GitHub repo in Render and it reads this file.
+services:
+  - type: web
+    name: agentic-rag
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-deploy.txt && python -m ragagent.prepare
+    startCommand: uvicorn ragagent.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: MODEL_RUNTIME
+        value: onnx
+      - key: MALLOC_ARENA_MAX     # fewer glibc arenas: less memory fragmentation
+        value: "2"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: GROQ_API_KEY         # set in the Render dashboard; never committed
+        sync: false

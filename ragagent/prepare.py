@@ -1,6 +1,6 @@
 """Download NFCorpus and both models, and cache the document embeddings.
 
-Run once (the Docker build does this) so the server starts in seconds."""
+Run once at build time (Render or Docker) so the server starts in seconds."""
 from .search import SearchEngine
 
 if __name__ == "__main__":

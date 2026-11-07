@@ -80,6 +80,7 @@ Conclusion: on this corpus the agent is **at least as good as the strongest pipe
 - **Dataset download.** The original BEIR server intermittently fails Python's TLS verification, so the loader falls back to the identical Hugging Face mirror (verified: 3,633 documents, 323 test queries).
 - **Trusting the LLM's routing was a bug.** The planner prompt said "direct reply for off-topic questions", and the model applied it to short keyword queries. The rule is now enforced in code (`is_chitchat`), not left to the prompt.
 - **Robustness.** If the planner, grader or verifier returns bad JSON, the agent degrades gracefully (rule-based aspects, keep all documents, skip verification) and records it in the trace rather than failing the request.
+- **Fitting a 512 MB free server.** The PyTorch stack needs well over 1 GB. For deployment the same two models run through ONNX (fastembed), and I profiled memory step by step: the cross-encoder's memory pool grew by about 240 MB per call with batches of 20 long abstracts, so it now scores one document at a time on one thread (flat memory, about 1.3 s per rerank). The `rank_bm25` index stored a Python dict per document (65 MB), so `lean_bm25.py` re-implements the same formula with NumPy posting lists; it produces identical top-20 rankings on all 323 test queries (checked by a test). Document embeddings ship pre-computed in `assets/`. The running service now peaks at about 485 MB.
 
 ## Run it
 
@@ -95,7 +96,7 @@ uvicorn ragagent.api:app --port 7860                  # open http://localhost:78
 Tests use fake models and a fake LLM, so they run offline with no API key:
 
 ```bash
-python -m pytest -q          # 21 tests: search, agent routing, rewrite cap, verifier, API, rate limit
+python -m pytest -q          # 22 tests: search, lean BM25, agent routing, rewrite cap, verifier, API, rate limit
 ```
 
 Benchmarks:
@@ -105,7 +106,9 @@ python -m eval.run_eval --skip-agent             # baselines only, no API key ne
 python -m eval.run_eval --limit 100 --rpm 8      # agent + answer quality; resumes if interrupted
 ```
 
-Docker (also used for the free Hugging Face Spaces deployment):
+Deploy free on Render (512 MB, no card needed): `render.yaml` is a Blueprint. In Render choose **New → Blueprint**, pick this repo, and set `GROQ_API_KEY` when asked. It installs the light `requirements-deploy.txt` (ONNX, no PyTorch) and runs with `MODEL_RUNTIME=onnx`. Free services sleep after 15 minutes idle, so the first request after a pause takes about a minute.
+
+Docker (any host with 1 GB+ RAM):
 
 ```bash
 docker build -t agentic-rag .

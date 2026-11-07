@@ -44,3 +44,17 @@ def test_parse_json_tolerates_prose():
     assert parse_json('Sure! ```json\n{"a": 1}\n```') == {"a": 1}
     with pytest.raises(ValueError):
         parse_json("no json here")
+
+
+def test_lean_bm25_matches_rank_bm25():
+    import numpy as np
+    from rank_bm25 import BM25Okapi
+
+    from fakes import CORPUS
+    from ragagent.core.retrievers import tokenize
+    from ragagent.lean_bm25 import LeanBM25
+
+    texts = [f"{t}. {x}" for t, x in CORPUS] * 3
+    ref, lean = BM25Okapi([tokenize(t) for t in texts]), LeanBM25(texts)
+    for q in ["statins breast cancer", "vitamin d d bones", "coffee liver enzymes", "nothing matches"]:
+        assert np.allclose(ref.get_scores(tokenize(q)), lean.get_scores(tokenize(q)), atol=1e-6)

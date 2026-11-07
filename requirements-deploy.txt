@@ -1,0 +1,16 @@
+# Lightweight runtime for 512 MB free hosts (Render): ONNX models via fastembed, no PyTorch.
+# The full stack for benchmarks is in requirements.txt.
+fastembed==0.9.1
+onnxruntime==1.31.1
+faiss-cpu==1.15.1
+rank-bm25==0.2.2
+numpy==2.1.2
+pandas==2.2.3
+pyarrow==21.0.0
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.2
+langgraph==1.2.19
+langchain-core==1.7.4
+openai==3.42.1
+httpx==0.28.1

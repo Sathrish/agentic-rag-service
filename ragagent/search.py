@@ -9,7 +9,8 @@ from .core import config
 from .core.aspects import extract_aspects
 from .core.metrics import covered_aspects
 from .core.rerankers import aspect_aware_rerank, cross_encoder_rerank, cross_encoder_scores
-from .core.retrievers import BM25Retriever, DenseRetriever, encode_documents
+from .core.retrievers import DenseRetriever, encode_documents
+from .lean_bm25 import LeanBM25
 
 RRF_K = 60  # standard Reciprocal Rank Fusion constant
 
@@ -60,22 +61,34 @@ class SearchEngine:
         self.doc_texts = [f"{t}. {x}" for t, x in zip(self.titles, self.texts)]
         self.encoder = encoder
         self.cross_encoder = cross_encoder
-        self.bm25 = BM25Retriever(self.doc_texts)
+        self.bm25 = LeanBM25(self.doc_texts)   # same scores as rank_bm25, ~60 MB less memory
         self.doc_embs = encode_documents(encoder, self.doc_texts, cache_path)
         self.dense = DenseRetriever(self.doc_embs)
 
     @classmethod
-    def from_nfcorpus(cls):
-        from sentence_transformers import CrossEncoder, SentenceTransformer
-
+    def from_nfcorpus(cls, runtime=None):
+        """``runtime`` "torch" (benchmarks) or "onnx" (small free hosts); defaults to MODEL_RUNTIME."""
         from .data import load_nfcorpus
 
+        runtime = runtime or settings.MODEL_RUNTIME
+        if runtime == "onnx":
+            from .onnx_models import OnnxCrossEncoder, OnnxEncoder
+
+            encoder = OnnxEncoder(cache_dir=str(settings.CACHE_DIR / "fastembed"))
+            cross = OnnxCrossEncoder(cache_dir=str(settings.CACHE_DIR / "fastembed"))
+        else:
+            from sentence_transformers import CrossEncoder, SentenceTransformer
+
+            encoder = SentenceTransformer(config.BI_ENCODER, device="cpu")
+            cross = CrossEncoder(config.CROSS_ENCODER, device="cpu")
         corpus, _, _ = load_nfcorpus()
-        encoder = SentenceTransformer(config.BI_ENCODER, device="cpu")
-        cross = CrossEncoder(config.CROSS_ENCODER, device="cpu")
         ids = list(corpus)
+        # Pre-computed ONNX document embeddings ship in assets/, so a 512 MB host never has to embed
+        # 3,633 documents itself; encode_documents() re-embeds if the corpus size ever differs.
+        shipped = settings.ROOT / "assets" / f"nfcorpus_minilm_{runtime}.npy"
+        cache = shipped if shipped.exists() else settings.CACHE_DIR / f"nfcorpus_minilm_{runtime}.npy"
         return cls(ids, [corpus[d]["title"] for d in ids], [corpus[d]["text"] for d in ids],
-                   encoder, cross, cache_path=settings.CACHE_DIR / "nfcorpus_minilm.npy")
+                   encoder, cross, cache_path=cache)
 
     def embed(self, texts):
         return np.asarray(self.encoder.encode(list(texts), convert_to_numpy=True,
